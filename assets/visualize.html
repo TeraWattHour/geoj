@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Visualize | GEOj</title>
+
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+      crossorigin=""
+    />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+    <script
+      src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+      crossorigin=""
+    ></script>
+
+    <style>
+      #map .leaflet-control-zoom-in,
+      #map .leaflet-control-zoom-out {
+        display: block;
+        border-radius: 0px;
+      }
+
+      [role="button"],
+      button,
+      input[type="button"],
+      input[type="reset"],
+      input[type="submit"] {
+        --background-color: none;
+        --border-color: none;
+        padding: 0px 0px;
+      }
+
+      [role="button"]:is([aria-current], :hover, :active, :focus),
+      button:is([aria-current], :hover, :active, :focus),
+      input[type="button"]:is([aria-current], :hover, :active, :focus),
+      input[type="reset"]:is([aria-current], :hover, :active, :focus),
+      input[type="submit"]:is([aria-current], :hover, :active, :focus) {
+        --background-color: none;
+        --border-color: none;
+      }
+    </style>
+
+    <style>
+      #map {
+        height: 32rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div id="map"></div>
+
+      <select id="country" style="margin-top: 16px">
+        <option value="" selected disabled>Select a country</option>
+      </select>
+
+      <select id="compression">
+        <option value="none">No compression</option>
+        <option value="slight">Slight (~100kB)</option>
+        <option value="medium">Medium (~60kB)</option>
+        <option value="moderate">Moderate (~20kB)</option>
+        <option value="aggressive">Aggressive (~1kB)</option>
+        <option value="max">Maximum (smallest size)</option>
+      </select>
+
+      <div style="margin-top: 48px">
+        <h2>Comparative sizes of GeoJSON files (in bytes)</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Country</th>
+              <th>Raw</th>
+              <th>Slight (~100kB)</th>
+              <th>Medium (~60kB)</th>
+              <th>Moderate (~20kB)</th>
+              <th>Aggressive (~1kB)</th>
+              <th>Maximum</th>
+            </tr>
+          </thead>
+
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <script>
+      const compressionSelector = document.getElementById("compression");
+      const countrySelector = document.getElementById("country");
+
+      var map = L.map("map").setView([51.505, -0.09], 5);
+      L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        maxZoom: 19,
+        attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      }).addTo(map);
+
+      let countryLayer;
+
+      const url = new URL(window.location.href);
+      const prefix = `${url.protocol}//${url.host}`;
+
+      const tableBody = document.querySelector("tbody");
+    </script>
+
+    <script async type="module">
+      const res = await fetch(`${prefix}/countries`);
+      for (const [code, { name, sizes }] of Object.entries(await res.json()).sort((a, b) =>
+        a[1].name.localeCompare(b[1].name)
+      )) {
+        const option = document.createElement("option");
+        option.value = code;
+        option.text = `${name} (${code})`;
+        countrySelector.appendChild(option);
+
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${name} (${code})</td>
+          <td onclick="fetchCountryGeoJson('${code}', 'none')">${sizes[0]}</td>
+          <td onclick="fetchCountryGeoJson('${code}', 'slight')">${sizes[1]}</td>
+          <td onclick="fetchCountryGeoJson('${code}', 'medium')">${sizes[2]}</td>
+          <td onclick="fetchCountryGeoJson('${code}', 'moderate')">${sizes[3]}</td>
+          <td onclick="fetchCountryGeoJson('${code}', 'aggressive')">${sizes[4]}</td>
+          <td onclick="fetchCountryGeoJson('${code}', 'max')">${sizes[5]}</td>
+        `;
+
+        tableBody.appendChild(row);
+      }
+
+      compressionSelector.onchange = (e) => {
+        fetchCountryGeoJson(countrySelector.value, compressionSelector.value);
+      };
+
+      countrySelector.onchange = (e) => {
+        fetchCountryGeoJson(e.target.value, compressionSelector.value);
+      };
+
+      // tableWrapper.querySelectorAll("tr:has(td)").forEach((tr) => {
+      //   tr.querySelectorAll("td:not(:first-child)").forEach((td) => {
+      //     td.style.cursor = "pointer";
+      //     td.addEventListener("click", (e) => {
+      //       const compression =
+      //         compressionSelector.children[Array.from(tr.children).indexOf(td) - 1].value;
+      //       const country = tr.querySelector("td").innerText;
+      //       fetchCountryGeoJson(country, compression);
+      //     });
+      //   });
+      // });
+    </script>
+
+    <script>
+      function fetchCountryGeoJson(countryCode, compression) {
+        countrySelector.value = countryCode;
+        compressionSelector.value = compression;
+
+        fetch(`${prefix}/geojson/${countryCode}?compression=${compression}`)
+          .then((response) => response.json())
+          .then((data) => {
+            countryLayer && map.removeLayer(countryLayer);
+            map.panTo(new L.LatLng(data[0][0][0][1], data[0][0][0][0]), 9);
+
+            countryLayer = L.geoJSON({
+              type: "Feature",
+              geometry: {
+                type: "MultiPolygon",
+                coordinates: data,
+              },
+            });
+            countryLayer.addTo(map);
+            document.querySelector("#map").scrollIntoView({ behavior: "smooth" });
+          });
+      }
+    </script>
+  </body>
+</html>
