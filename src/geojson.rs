@@ -1,5 +1,6 @@
 use std::{collections::HashMap, fs};
 
+use log::info;
 use strum::IntoEnumIterator;
 
 use crate::{
@@ -32,6 +33,8 @@ fn read_geojson_blob() -> Result<[HashMap<CountryCode, geo::MultiPolygon>; 6], a
 }
 
 pub fn load_countries() -> Result<HashMap<CountryCode, Box<SimplifiedBorders>>, anyhow::Error> {
+    info!("Loading countries");
+
     let [none, slight, medium, moderate, aggressive, max] = read_geojson_blob()?;
 
     let mut variants = HashMap::new();
@@ -57,6 +60,8 @@ pub fn load_countries() -> Result<HashMap<CountryCode, Box<SimplifiedBorders>>, 
 
         variants.insert(country, Box::new(borders));
     }
+
+    info!("Countries loaded");
 
     Ok(variants)
 }

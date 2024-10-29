@@ -8,6 +8,7 @@ mod simplification;
 use axum::{routing::get, Router};
 use axum_response_cache::CacheLayer;
 use countries::CountryCode;
+use env_logger;
 use handlers::{get_countries::*, get_country_geojson::*};
 use simplification::SimplifiedBorders;
 use std::{
@@ -23,6 +24,8 @@ struct AppState {
 
 #[tokio::main]
 async fn main() {
+    env_logger::init();
+
     let app_state = AppState {
         countries: Arc::new(Mutex::new(geojson::load_countries().unwrap())),
     };

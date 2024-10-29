@@ -68,6 +68,11 @@
         <option value="max">Maximum (smallest size)</option>
       </select>
 
+      <span>
+        <input type="checkbox" name="only_mainland" id="only_mainland" />
+        <label for="only_mainland">Only mainland</label>
+      </span>
+
       <div style="margin-top: 48px">
         <h2>Comparative sizes of GeoJSON files (in bytes)</h2>
         <table>
@@ -91,6 +96,7 @@
     <script>
       const compressionSelector = document.getElementById("compression");
       const countrySelector = document.getElementById("country");
+      const onlyMainlandCheckbox = document.getElementById("only_mainland");
 
       var map = L.map("map").setView([51.505, -0.09], 5);
       L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -130,12 +136,24 @@
         tableBody.appendChild(row);
       }
 
+      onlyMainlandCheckbox.onchange = (e) => {
+        fetchCountryGeoJson(countrySelector.value, compressionSelector.value, e.target.checked);
+      };
+
       compressionSelector.onchange = (e) => {
-        fetchCountryGeoJson(countrySelector.value, compressionSelector.value);
+        fetchCountryGeoJson(
+          countrySelector.value,
+          compressionSelector.value,
+          onlyMainlandCheckbox.checked
+        );
       };
 
       countrySelector.onchange = (e) => {
-        fetchCountryGeoJson(e.target.value, compressionSelector.value);
+        fetchCountryGeoJson(
+          e.target.value,
+          compressionSelector.value,
+          onlyMainlandCheckbox.checked
+        );
       };
 
       // tableWrapper.querySelectorAll("tr:has(td)").forEach((tr) => {
@@ -152,21 +170,24 @@
     </script>
 
     <script>
-      function fetchCountryGeoJson(countryCode, compression) {
+      function fetchCountryGeoJson(countryCode, compression, onlyMainland) {
         countrySelector.value = countryCode;
         compressionSelector.value = compression;
+        onlyMainlandCheckbox.checked = onlyMainland;
 
-        fetch(`${prefix}/geojson/${countryCode}?compression=${compression}`)
+        fetch(
+          `${prefix}/geojson/${countryCode}?compression=${compression}&only_mainland=${onlyMainland}`
+        )
           .then((response) => response.json())
           .then((data) => {
             countryLayer && map.removeLayer(countryLayer);
-            map.panTo(new L.LatLng(data[0][0][0][1], data[0][0][0][0]), 9);
+            map.panTo(new L.LatLng(data[0][0], data[0][1]), 9);
 
             countryLayer = L.geoJSON({
               type: "Feature",
               geometry: {
                 type: "MultiPolygon",
-                coordinates: data,
+                coordinates: data[1],
               },
             });
             countryLayer.addTo(map);

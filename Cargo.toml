@@ -14,3 +14,5 @@ tokio = { version = "1.40.0", features = ["full"] }
 axum-response-cache = "0.1.1"
 tower-http = { version = "0.6.1", features = ["fs"] }
 strum = { version = "0.26.3", features = ["std", "derive", "strum_macros"] }
+log = "0.4.22"
+env_logger = "0.11.5"
